@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Chess</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; }
+        .glass-panel {
+            background: rgba(39, 39, 42, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .chessboard {
+            display: grid;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            grid-template-rows: repeat(8, minmax(0, 1fr));
+            width: 100%;
+            max-width: min(600px, 65vh);
+            aspect-ratio: 1 / 1;
+            transform: rotate(0deg);
+            border: 8px solid #2d2d2d;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        .square {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Modern Blue/Gray Theme for board */
+        .square.light { background-color: #dee3e6; }
+        .square.dark { background-color: #8ca2ad; }
+
+        /* Highlight last move */
+        .square.highlight {
+            background-color: rgba(255, 255, 50, 0.5) !important;
+        }
+
+        .piece {
+            font-size: clamp(30px, 6vw, 55px);
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s ease;
+        }
+
+        .piece:active { transform: scale(1.1); }
+
+        .piece.white {
+            color: #ffffff;
+            text-shadow: 0px 3px 4px rgba(0,0,0,0.4), 0px 0px 2px rgba(0,0,0,0.8);
+        }
+
+        .piece.black {
+            color: #1a1a1a;
+            text-shadow: 0px 2px 3px rgba(255,255,255,0.3);
+        }
+
+        .piece.draggable { cursor: grab; }
+        .piece.draggable:active { cursor: grabbing; }
+
+        .dragging { opacity: 0.5; }
+
+        .flipped { transform: rotate(180deg); }
+        .flipped .piece { transform: rotate(180deg); }
+        
+        /* Custom scrollbar for history */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #71717a; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-gray-100 min-h-screen flex flex-col overflow-x-hidden selection:bg-blue-500/30">
+
+    <!-- Header area (Welcome & Role) -->
+    <header class="w-full py-4 px-6 md:px-12 flex items-center justify-between glass-panel border-b-0 border-zinc-800 z-10 sticky top-0">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">Grandmaster</h1>
+        </div>
+        <div id="role-badge" class="px-4 py-1.5 rounded-full text-sm font-semibold tracking-wider uppercase border border-zinc-700 bg-zinc-800/50 shadow-inner">
+            <span class="animate-pulse flex items-center gap-2 w-full h-full text-zinc-400">Connecting...</span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col lg:flex-row items-center justify-center p-4 md:p-8 gap-8 max-w-7xl mx-auto w-full">
+        
+        <!-- Game Info / Scoreboard (Left sidebar on desktop, top on mobile) -->
+        <aside class="w-full lg:w-80 flex flex-col gap-6 order-2 lg:order-1">
+            <!-- Game Status Box -->
+            <div class="glass-panel rounded-2xl p-6 flex flex-col gap-4">
+                <h2 class="text-xl font-semibold text-zinc-200 border-b border-zinc-700 pb-2">Game Status</h2>
+                
+                <div class="flex flex-col items-center justify-center p-4 bg-zinc-900/60 rounded-xl border border-zinc-800">
+                    <span class="text-xs uppercase tracking-widest text-zinc-400 mb-1">Turn</span>
+                    <div id="turn-indicator" class="text-2xl font-bold text-white flex items-center gap-2 transition-all">
+                        <div class="w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
+                        White
+                    </div>
+                </div>
+
+                <div id="game-alert" class="hidden text-center p-3 rounded-lg font-bold text-sm border">
+                    <!-- Check / Checkmate messages inject here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center: Chessboard -->
+        <div class="flex justify-center flex-grow order-1 lg:order-2 w-full">
+            <div class="chessboard relative">
+                <!-- Board generated via JS -->
+            </div>
+        </div>
+
+        <!-- Move History / Stats (Right sidebar on desktop, bottom on mobile) -->
+        <aside class="w-full lg:w-80 flex flex-col gap-6 order-3">
+            <div class="glass-panel rounded-2xl p-6 flex flex-col h-[400px]">
+                <h2 class="text-xl font-semibold text-zinc-200 border-b border-zinc-700 pb-2 mb-4">Move History</h2>
+                <div id="move-history" class="space-y-2 overflow-y-auto flex-grow text-sm text-zinc-300 pr-2">
+                    <div class="text-center text-zinc-500 italic mt-8">No moves yet.</div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" integrity="sha512-xRllwz2gdZciIB+AkEbeq+gVhX8VB8XsfqeFbUh+SzHlN96dEduwtTuVuc2u9EROlmW9+yhRlxjif66ORpsgVA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="/javascripts/chessgame.js"></script>
+</body>
+</html>
